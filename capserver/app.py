@@ -87,7 +87,7 @@ currentQuestion = pergunta1
 def new_player():
     global playerid
     playerid = playerid+1
-    username = "Capivara "+playerid
+    username = "Capivara "+str(playerid)
     emit('newplayeradded', {"playerid":playerid, "username":username})
 
 @socketio.on('playerWantsToEnterRoom', namespace='/game')
