@@ -17,8 +17,7 @@ var answerStatus = "";
 var players;
 var username;
 var currentQuestion;
-var socket = io.connect('http://ec2-52-67-119-8.sa-east-1.compute.amazonaws.com:8180/game');
-
+var socket = io.connect('http://localhost:5000/game');
 var interval;
 
 

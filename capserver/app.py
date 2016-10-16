@@ -4,12 +4,12 @@ import random
 
 app = Flask(__name__)
 socketio = SocketIO(app)
-numOfPlayers = 2
+numOfPlayers = 5
 players = []
 playerid = 0
 answerLock = 0
 newQuestion = -numOfPlayers
-maxPoints = 2
+maxPoints = 5
 pergunta1 = {
     "questao": "Sobre a alimentação das capivaras,\n elas são animais: ",
     "op1": "Herbívoros",
@@ -147,6 +147,8 @@ def timeoutanswer():
     global answerLock
     global players
     global maxPoints
+    global playerid
+    global newquestion
     for player in players:
         if player['playerid'] == answerLock:
             player['score'] = player['score']+1
