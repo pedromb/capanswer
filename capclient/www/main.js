@@ -17,7 +17,7 @@ var answerStatus = "";
 var players;
 var username;
 var currentQuestion;
-var socket = io.connect('http://localhost:5000/game');
+var socket = io.connect('http://ec2-52-67-119-8.sa-east-1.compute.amazonaws.com:8180/game');
 
 var interval;
 
@@ -26,9 +26,11 @@ var interval;
 socket.on('finishgame', function (result) {
     console.log(result)
     if (result == window.localStorage.playerid) {
+        socket.emit('leaveroom');
         game.state.start('winner');
     }
     else {
+        socket.emit('leaveroom');
         game.state.start('looser');
     }
 });
@@ -67,7 +69,8 @@ socket.on('playertimeout', function (data) {
 
 socket.on('newplayeradded', function (data) {
     window.localStorage.playerid = data.playerid;
-        username = data.username;
+    username = data.username;
+    game.state.start('chooseRoom');
 });
 
 socket.on('playeraddedtoroom', function (data) {
@@ -80,10 +83,13 @@ socket.on('startgame', function (data) {
     game.state.start('fightForQuestion');
 });
 
+socket.on('newgame', function () {
+    window.localStorage.removeItem("playerid");
+    game.state.start('login');
+});
 
 function entrarAction() {
     socket.emit('newplayer');
-    game.state.start('chooseRoom');
 }
 
 function enterRoomAction() {
