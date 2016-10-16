@@ -152,10 +152,10 @@ def timeoutanswer():
             player['score'] = player['score']+1
             if(player['score'] == maxPoints):
                 winnderid = answerLock
-                players = []
-                playerid = 0
-                answerLock = 0
-                newQuestion = -numOfPlayers
+                    players = []
+                    playerid = 0
+                    answerLock = 0
+                    newQuestion = -numOfPlayers
                 emit('finishgame', winnderid, room="mainroom")
             else:
                 answerLock = 0
@@ -173,6 +173,9 @@ def waitingforplayers():
         currentQuestion = random.choice(questions)
         emit('startgame', currentQuestion, room="mainroom")
 
+@socketio.on('leaveroom', namespace='/game')
+def leaveroom():
+    leave_room("mainroom")
 
 if __name__ == '__main__':
     socketio.run(app)
