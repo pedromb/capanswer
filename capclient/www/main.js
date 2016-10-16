@@ -1,17 +1,24 @@
 
 
-var game = new Phaser.Game("100%", "100%", Phaser.CANVAS, 'capanswer');
+var game = new Phaser.Game(window.innerWidth,
+    window.innerHeight, Phaser.CANVAS, 'capanswer');
+
+Phaser.Device.whenReady(function () {
+    game.plugins.add(Fabrique.Plugins.InputField);
+    game.scale.refresh();
+});
 
 var title;
 var bg;
 var button;
-var username;
 var connectedPlayers;
 var playerAnswering;
 var answerStatus = "";
 var players;
+var username;
 var currentQuestion;
 var socket = io.connect('http://localhost:5000/game');
+
 var interval;
 
 
@@ -60,6 +67,7 @@ socket.on('playertimeout', function (data) {
 
 socket.on('newplayeradded', function (data) {
     window.localStorage.playerid = data.playerid;
+        username = data.username;
 });
 
 socket.on('playeraddedtoroom', function (data) {
@@ -82,7 +90,7 @@ function enterRoomAction() {
     var playerid = window.localStorage.playerid;
     socket.emit('playerWantsToEnterRoom', {
         playerid: playerid,
-        nick: username.value
+        nick: username
     });
 }
 
@@ -109,36 +117,23 @@ function playAgain() {
 var loginState = {
 
     preload: function () {
-        game.add.plugin(Fabrique.Plugins.InputField);
+
         game.load.image('bg', 'assets/img/bg.jpg');
         game.load.image('entrarButton', 'assets/img/entrar.png');
     },
     create: function () {
+
         var textX = game.width / 2;
         var textY = game.height / 3;
         var styleTitle = { font: "bold 6em Raleway sans-serif", fill: "#fff" };
-        backgroundWidth = game.width;
-        backgroundHeight = game.height;
-        bg = game.add.sprite(160, 32, 'bg');
+        bg = game.add.sprite(0, 0, 'bg');
         bg.x = 0;
         bg.y = 0;
         bg.height = game.height;
         bg.width = game.width;
         title = game.add.text(textX, textY, "CAPANSWER:QUANTO VOCÊ \n  SABE SOBRE CAPIVARAS?", styleTitle);
-        title.anchor.set(0.5)
-        username = game.add.inputField(textX - 350, textY + 300, {
-            font: '40px Arial',
-            fill: '#212121',
-            fontWeight: 'normal',
-            width: 400,
-            height: 60,
-            padding: 5,
-            borderWidth: 1,
-            borderColor: '#000',
-            borderRadius: 6,
-            placeHolder: 'Entre com seu nick',
-        });
-        button = game.add.button(textX + 100, textY + 300, 'entrarButton',
+        title.anchor.set(0.5);
+        button = game.add.button(textX - 180, textY + 300, 'entrarButton',
             entrarAction, this, 2, 1, 0);
     },
 };
@@ -152,7 +147,7 @@ var chooseRoomState = {
         var x = game.width / 2;
         var y = game.height / 5;
         var styleTitle = { font: "normal 5.5em Raleway sans-serif", fill: "#fff" };
-        var newTitlteText = username.value + ", escolha uma sala:";
+        var newTitlteText = username + ", escolha uma sala:";
         var newTitle = game.add.text(x, y, newTitlteText, styleTitle);
         newTitle.anchor.set(0.5);
         button = game.add.button(x, y + 400, 'roomButton',
@@ -168,7 +163,7 @@ var waitRoomState = {
         var styleTitle = { font: "normal 6em Raleway sans-serif", fill: "#fff" };
         var newTitlteText = "Esperando jogadores...";
         var newTitle = game.add.text(x, y, newTitlteText, styleTitle);
-        newTitle.anchor.set(0.5)
+        newTitle.anchor.set(0.5);
         game.stage.backgroundColor = "#5bc0de";
         var loadingProcessInPercentage = game.add.text(game.width / 2 - 20, game.height / 2 - 100,
             connectedPlayers, {
@@ -370,9 +365,6 @@ var looserState = {
 
     }
 };
-
-
-
 
 
 game.state.add('login', loginState);
