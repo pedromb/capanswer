@@ -1,15 +1,26 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from datetime import datetime
+import calendar
 import random
+import atexit
+import threading
+
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 numOfPlayers = 5
 players = []
-playerid = 0
+players_ids = [0]
 answerLock = 0
 newQuestion = -numOfPlayers
 maxPoints = 5
+HEARTBEAT_TIME = 4
+CHECK_HEARTBEAT_TIME = 7
+heartbeatThread = threading.Thread()
+checkHeartbeatThread = threading.Thread()
+gameHappening = False
+
 pergunta1 = {
     "questao": "Sobre a alimentação das capivaras,\n elas são animais: ",
     "op1": "Herbívoros",
@@ -17,9 +28,7 @@ pergunta1 = {
     "op3": "Onívoros",
     "op4": "Nenhuma das anteriores",
     "op5": "Não sei",
-    "opCerta": "op1",
-}
-
+    "opCerta": "op1",}
 pergunta2 = {
     "questao": "O tempo médio de gestação de \n uma capivara é de: ",
     "op1": "90 dias",
@@ -85,27 +94,27 @@ currentQuestion = pergunta1
 
 @socketio.on('newplayer', namespace='/game')
 def new_player():
-    global playerid
-    playerid = playerid+1
-    username = "Capivara "+str(playerid)
-    emit('newplayeradded', {"playerid":playerid, "username":username})
+
+    player_id = get_player_id()
+    username = "Capivara "+str(player_id)
+    emit('newplayeradded', {"playerid":player_id, "username":username, "gameHappening": gameHappening})
 
 @socketio.on('playerWantsToEnterRoom', namespace='/game')
 def player_enters_room(data):
     global players
     global numOfPlayers
     global currentQuestion
-    global playerid
     newPlayer = {
         "nick":data['nick'],
         "score": 0,
-        "playerid": data['playerid']
+        "playerid": data['playerid'],
+        "heartbeat": calendar.timegm(datetime.utcnow().utctimetuple())
     }
     players.append(newPlayer)
     join_room("mainroom")
     count = len(players)
-    startGame = False
     if(count == numOfPlayers):
+        gameHappening = True
         currentQuestion = random.choice(questions) 
         emit('startgame', currentQuestion, room="mainroom")
     else:
@@ -147,7 +156,7 @@ def timeoutanswer():
     global answerLock
     global players
     global maxPoints
-    global playerid
+    global players_ids
     global newquestion
     for player in players:
         if player['playerid'] == answerLock:
@@ -155,7 +164,7 @@ def timeoutanswer():
             if(player['score'] == maxPoints):
                 winnderid = answerLock
                 players = []
-                playerid = 0
+                players_ids = [0]
                 answerLock = 0
                 newQuestion = -numOfPlayers
                 emit('finishgame', winnderid, room="mainroom")
@@ -178,6 +187,78 @@ def waitingforplayers():
 @socketio.on('leaveroom', namespace='/game')
 def leaveroom():
     leave_room("mainroom")
+@socketio.on('heartbeat', namespace='/game')
+def heartbeat(data):
+    global players
 
-if __name__ == '__main__':
+    playerid = data['playerid']
+    heartbeat = data['heartbeat_time']
+    for player in players:
+        if player['playerid'] == playerid:
+            player['heartbeat'] = heartbeat
+
+
+def interupt():
+    global heartbeatThread
+    global checkHeartbeatThread
+    checkHeartbeatThread.cancel()
+    heartbeatThread.cancel()
+
+def sendHeartbeat():
+    global heartbeatThread
+    global HEARTBEAT_TIME
+
+    heartbeat = calendar.timegm(datetime.utcnow().utctimetuple())
+    socketio.emit('heartbeat', {'time':heartbeat}, namespace='/game')
+    
+    heartbeatThread = threading.Timer(HEARTBEAT_TIME, sendHeartbeat, ())
+    heartbeatThread.start()
+
+def checkHearbeat():
+    global checkHeartbeatThread
+    global CHECK_HEARTBEAT_TIME
+    global players
+    timestamp_now = calendar.timegm(datetime.utcnow().utctimetuple())
+    new_list = []
+    if len(players) > 0:
+        for player in players:
+            if timestamp_now > int(player['heartbeat'])+CHECK_HEARTBEAT_TIME:
+                print('Jogador de id {0} e username {1} falhou. Removendo da sala...'.format(player['playerid'], player['nick']))
+                remove_player_id(player['playerid'])
+            else:
+                new_list.append(player)
+        players = new_list
+    checkHeartbeatThread = threading.Timer(CHECK_HEARTBEAT_TIME, checkHearbeat, ())
+    checkHeartbeatThread.start()
+
+def get_player_id():
+
+    global players_ids
+    player_id = [x for x in range(0, max(players_ids)+2) if x not in players_ids][0]
+    players_ids.append(player_id)
+    return player_id
+
+def remove_player_id(playerid):
+    global players_ids
+
+    new_player_ids = [x for x in players_ids if x != int(playerid)]
+    players_ids = new_player_ids
+    count = len(players_ids)-1
+    print(count)
+    socketio.emit('playeraddedtoroom', {"count":count}, room="mainroom", namespace='/game')
+
+
+
+
+
+
+
+
+
+
+
+if __name__ == '__main__':  
+    sendHeartbeat()
+    checkHearbeat()
+    atexit.register(interupt)
     socketio.run(app)

@@ -1,5 +1,3 @@
-
-
 var game = new Phaser.Game(window.innerWidth,
     window.innerHeight, Phaser.CANVAS, 'capanswer');
 
@@ -17,10 +15,21 @@ var answerStatus = "";
 var players;
 var username;
 var currentQuestion;
-var socket = io.connect('http://localhost:5000/game');
 var interval;
+var heartbeat;
+var serverHeartbeat;
+var lastServerHearbeat = 0;
+var CHECK_HEARTBEAT_TIME = 6;
+
+serverHeartbeat = setInterval(function () {
+    var currentUTCTime = new Date().getTime() / 1000;
+    if (currentUTCTime > lastServerHearbeat + CHECK_HEARTBEAT_TIME) {
+        game.state.start('serverError');
+    }
+}, 6000);
 
 
+var socket = io.connect('http://localhost:5000/game');
 
 socket.on('finishgame', function (result) {
     console.log(result)
@@ -69,11 +78,17 @@ socket.on('playertimeout', function (data) {
 socket.on('newplayeradded', function (data) {
     window.localStorage.playerid = data.playerid;
     username = data.username;
-    game.state.start('chooseRoom');
+    var gameHappening = data.gameHappening;
+    if (gameHappening) {
+        game.state.start('gameHappening')
+    }
+    else {
+        game.state.start('chooseRoom');
+    }
 });
 
 socket.on('playeraddedtoroom', function (data) {
-    connectedPlayers = data.count + '/5';
+    connectedPlayers = data.count + '/4';
     game.state.start('waitRoom');
 });
 
@@ -85,6 +100,10 @@ socket.on('startgame', function (data) {
 socket.on('newgame', function () {
     window.localStorage.removeItem("playerid");
     game.state.start('login');
+});
+
+socket.on('heartbeat', function (data) {
+    lastServerHearbeat = data.time;
 });
 
 function entrarAction() {
@@ -175,6 +194,14 @@ var waitRoomState = {
                 font: '60px "Press Start 2P"',
                 fill: '#ffffff'
             });
+        heartbeat = setInterval(function () {
+            var currentUTCTime = new Date().getTime() / 1000;
+            var heartbeatJson = {
+                "playerid": window.localStorage.playerid,
+                "heartbeat_time": currentUTCTime
+            };
+            socket.emit('heartbeat', heartbeatJson);
+        }, 4000);
 
     }
 };
@@ -371,6 +398,31 @@ var looserState = {
     }
 };
 
+var serverErrorState = {
+    create: function () {
+        var x = game.width / 2;
+        var y = game.height / 2;
+        game.stage.backgroundColor = "#5bc0de";
+        var styleTitle = { font: "normal 6em Raleway sans-serif", fill: "#fff", align: "center" };
+        var newTitle = game.add.text(x, y, "Ocorreu um erro no servidor!\nAtualize a página e \n tente novamente!",
+            styleTitle);
+        newTitle.anchor.set(0.5);
+
+    }
+};
+
+var gameHappeningState = {
+    create: function () {
+        var x = game.width / 2;
+        var y = game.height / 2;
+        game.stage.backgroundColor = "#5bc0de";
+        var styleTitle = { font: "normal 6em Raleway sans-serif", fill: "#fff", align: "center" };
+        var newTitle = game.add.text(x, y, "Um jogo encontra-se em curso! \n Tente novamente mais tarde!",
+            styleTitle);
+        newTitle.anchor.set(0.5);
+
+    }
+};
 
 game.state.add('login', loginState);
 game.state.add('chooseRoom', chooseRoomState);
@@ -381,5 +433,11 @@ game.state.add('waitForAnswer', waitForAnswerState);
 game.state.add('score', scoreState);
 game.state.add('winner', winnerState);
 game.state.add('looser', looserState);
+game.state.add('serverError', serverErrorState);
+game.state.add('gameHappening', gameHappeningState);
 
-game.state.start('login');
+socket.on('connect', function () {
+    game.state.start('login');
+});
+
+game.state.start('serverError');
