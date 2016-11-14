@@ -158,6 +158,7 @@ def timeoutanswer():
     global maxPoints
     global players_ids
     global newquestion
+    global gameHappening
     for player in players:
         if player['playerid'] == answerLock:
             player['score'] = player['score']+1
@@ -167,6 +168,7 @@ def timeoutanswer():
                 players_ids = [0]
                 answerLock = 0
                 newQuestion = -numOfPlayers
+                gameHappening = False
                 emit('finishgame', winnderid, room="mainroom")
             else:
                 answerLock = 0
@@ -218,6 +220,9 @@ def checkHearbeat():
     global checkHeartbeatThread
     global CHECK_HEARTBEAT_TIME
     global players
+    global players_ids
+    global gameHappening
+
     timestamp_now = calendar.timegm(datetime.utcnow().utctimetuple())
     new_list = []
     if len(players) > 0:
@@ -225,6 +230,8 @@ def checkHearbeat():
             if timestamp_now > int(player['heartbeat'])+CHECK_HEARTBEAT_TIME:
                 print('Jogador de id {0} e username {1} falhou. Removendo da sala...'.format(player['playerid'], player['nick']))
                 remove_player_id(player['playerid'])
+                if(len(players_ids) == 1):
+                    gameHappening = False
             else:
                 new_list.append(player)
         players = new_list
